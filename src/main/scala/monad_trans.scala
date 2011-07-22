@@ -241,10 +241,6 @@ object MT {
   // scala> res37.runT.value
   // res39: Either[String,Value] = Left(type error in Plus error in lookup)
 
-
-  type EitherTStringIdentity[α] = ({type λ[α] = EitherT[String, Identity, α]})#λ[α]
-  type Eval3[A] = Kleisli[Env, EitherTStringIdentity, A]
-
   type StateTIntIdentity[α] = ({type λ[α] = StateT[Int, Identity, α]})#λ[α]
   type Eval5[A] = EitherT[String, StateTIntIdentity, A]
 
