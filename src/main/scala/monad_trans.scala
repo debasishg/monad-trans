@@ -60,17 +60,23 @@ object MT {
 
   def eval1: Env => Exp => Eval1[Value] = {env => exp =>
     exp match {
-      case Lit(i) => id[Value](IntVal(i))
-      case Var(n) => id[Value]((env get n).get)
+      case Lit(i) => {
+        val v: Value = IntVal(i)
+        v.point[Eval1]
+      }
+      case Var(n) => (env get n).get.point[Eval1]
       case Plus(e1, e2) => for {
         i <- eval1(env)(e1)
         j <- eval1(env)(e2)
       } yield {
         val IntVal(i1) = i
         val IntVal(i2) = j
-        id[Value](IntVal(i1 + i2))
+        IntVal(i1 + i2)
       }
-      case Abs(n, e) => id[Value](FunVal(env, n, e))
+      case Abs(n, e) => {
+        val v: Value = FunVal(env, n, e)
+        v.point[Eval1]
+      }
       case App(e1, e2) => for {
         val1 <- eval1(env)(e1)
         val2 <- eval1(env)(e2)
@@ -92,8 +98,11 @@ object MT {
 
   def eval2a: Env => Exp => Eval2[Value] = {env => exp =>
     exp match {
-      case Lit(i) => rightT(id[Value](IntVal(i)))
-      case Var(n) => rightT(id[Value]((env get n).get))
+      case Lit(i) => {
+        val v: Value = IntVal(i)
+        v.point[Eval2]
+      }
+      case Var(n) => (env get n).get.point[Eval2]
       case Plus(e1, e2) => for {
         i <- eval2a(env)(e1)
         j <- eval2a(env)(e2)
@@ -102,7 +111,10 @@ object MT {
         val IntVal(j_) = j
         IntVal(i_ + j_)
       }
-      case Abs(n, e) => rightT(id[Value](FunVal(env, n, e)))
+      case Abs(n, e) => {
+        val v: Value = FunVal(env, n, e)
+        v.point[Eval2]
+      }
       case App(e1, e2) => for {
         val1 <- eval2a(env)(e1)
         val2 <- eval2a(env)(e2)
@@ -128,8 +140,11 @@ object MT {
 
   def eval2b: Env => Exp => Eval2[Value] = {env => exp =>
     exp match {
-      case Lit(i) => rightT(id[Value](IntVal(i)))
-      case Var(n) => rightT(id[Value]((env get n).get))
+      case Lit(i) => {
+        val v: Value = IntVal(i)
+        v.point[Eval2]
+      }
+      case Var(n) => (env get n).get.point[Eval2]
       case Plus(e1, e2) => 
         val r = 
           for {
@@ -138,11 +153,14 @@ object MT {
           } yield((i, j))
 
         r.runT.value match {
-          case Right((IntVal(i_), IntVal(j_))) => rightT(id[Value](IntVal(i_ + j_)))
+          case Right((IntVal(i_), IntVal(j_))) => rightT(IntVal(i_ + j_))
           case Left(s) => leftT("type error in Plus" + "/" + s)
           case _ => leftT("type error in Plus")
         }
-      case Abs(n, e) => rightT(id[Value](FunVal(env, n, e)))
+      case Abs(n, e) => {
+        val v: Value = FunVal(env, n, e)
+        v.point[Eval2]
+      }
       case App(e1, e2) => 
         val r =
           for {
@@ -189,9 +207,12 @@ object MT {
 
   def eval2: Env => Exp => Eval2[Value] = {env => exp =>
     exp match {
-      case Lit(i) => rightT(id[Value](IntVal(i)))
+      case Lit(i) => {
+        val v: Value = IntVal(i)
+        v.point[Eval2]
+      }
 
-      case Var(n) => (env get n).map(v => rightT[String, Identity, Value](id[Value](v)))
+      case Var(n) => (env get n).map(v => rightT[String, Identity, Value](v))
                                 .getOrElse(leftT[String, Identity, Value]("Unbound variable " + n))
       case Plus(e1, e2) => 
         val r = 
@@ -201,12 +222,15 @@ object MT {
           } yield((i, j))
 
         r.runT.value match {
-          case Right((IntVal(i_), IntVal(j_))) => rightT(id[Value](IntVal(i_ + j_)))
+          case Right((IntVal(i_), IntVal(j_))) => rightT(IntVal(i_ + j_))
           case Left(s) => leftT("type error in Plus" + "/" + s)
           case _ => leftT("type error in Plus")
         }
 
-      case Abs(n, e) => rightT(id[Value](FunVal(env, n, e)))
+      case Abs(n, e) => {
+        val v: Value = FunVal(env, n, e)
+        v.point[Eval2]
+      }
 
       case App(e1, e2) => 
         val r =
@@ -315,5 +339,4 @@ object MT {
 
   // scala> runEval5(env)(e2)(0)
   // res27: (Either[String,Value], Int) = (Left(Unbound variable y),8)
-
 }
