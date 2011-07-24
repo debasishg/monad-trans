@@ -66,18 +66,18 @@ class MonadTransSpec extends Spec with ShouldMatchers {
     }
   }
 
-  describe("eval5") {
+  describe("eval3") {
     it("should evaluate") {
       val ex1 = Plus(Lit(12), Lit(98))
-      runEval5(env)(ex1)(76) should equal(Right(IntVal(110)), 79)
+      runEval3(env)(ex1)(76) should equal(Right(IntVal(110)), 79)
       val ex2 = Plus(Lit(12), Plus(Lit(87), Lit(6)))
-      runEval5(env)(ex2)(17) should equal(Right(IntVal(105)), 22)
+      runEval3(env)(ex2)(17) should equal(Right(IntVal(105)), 22)
       val ex3 = Plus(Lit(12), App(Abs("x", Var("x")), Plus(Lit(4), Lit(2))))
-      runEval5(env)(ex3)(0) should equal(Right(IntVal(18)), 8)
+      runEval3(env)(ex3)(0) should equal(Right(IntVal(18)), 8)
     }
     it("should error on unbound variable") {
       val ex1 = Plus(Lit(12), App(Abs("x", Var("y")), Plus(Lit(4), Lit(2))))
-      runEval5(env)(ex1)(0) should equal(Left("Unbound variable y"), 7)
+      runEval3(env)(ex1)(0) should equal(Left("Unbound variable y"), 7)
     }
   }
 }

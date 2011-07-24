@@ -249,10 +249,10 @@ object MT {
   // res39: Either[String,Value] = Left(type error in Plus error in lookup)
 
   type StateTIntIdentity[α] = ({type λ[α] = StateT[Int, Identity, α]})#λ[α]
-  type Eval5[A] = EitherT[String, StateTIntIdentity, A]
+  type Eval3[A] = EitherT[String, StateTIntIdentity, A]
 
-  def runEval5: Env => Exp => Int => (Either[String, Value], Int) = { env => exp => seed => 
-    eval5(env)(exp).runT.value.run(seed)
+  def runEval3: Env => Exp => Int => (Either[String, Value], Int) = { env => exp => seed => 
+    eval3(env)(exp).runT.value.run(seed)
   }
 
   def stfn(e: Either[String, Value]) = (s: Int) => id[(Either[String, Value], Int)](e, s+1)
@@ -260,7 +260,7 @@ object MT {
   def eitherNStateT(e: Either[String, Value]) =
     eitherT[String, StateTIntIdentity, Value](stateT[Int, Identity, Either[String, Value]](stfn(e)))
 
-  def eval5: Env => Exp => Eval5[Value] = {env => exp => 
+  def eval3: Env => Exp => Eval3[Value] = {env => exp => 
     exp match {
       case Lit(i) => eitherNStateT(Right(IntVal(i)))
 
@@ -270,8 +270,8 @@ object MT {
           case _ => eitherNStateT(Left("type error in Plus"))
         }
         for {
-          i <- eval5(env)(e1)
-          j <- eval5(env)(e2)
+          i <- eval3(env)(e1)
+          j <- eval3(env)(e2)
           v <- appplus(i, j)
         } yield v
 
@@ -284,14 +284,14 @@ object MT {
 
       case App(e1, e2) => 
         def appfun(v1: Value, v2: Value) = v1 match {
-          case FunVal(e, n, body) => eval5(e + ((n, v2)))(body)
+          case FunVal(e, n, body) => eval3(e + ((n, v2)))(body)
           case _ => eitherNStateT(Left("type error in App"))
         }
 
         val s =
           for {
-            val1 <- eval5(env)(e1)
-            val2 <- eval5(env)(e2)
+            val1 <- eval3(env)(e1)
+            val2 <- eval3(env)(e2)
             v    <- appfun(val1, val2)
           } yield v
 
@@ -303,23 +303,23 @@ object MT {
   // scala> val ex1 = Plus(Lit(12), Lit(98))
   // ex1: Plus = Plus(Lit(12),Lit(98))
 
-  // scala> runEval5(env)(ex1)(76)
+  // scala> runEval3(env)(ex1)(76)
   // res129: (Either[String,Value], Int) = (Right(IntVal(110)),79)
 
   // scala> val ex2 = Plus(Lit(12), Plus(Lit(87), Lit(6)))
   // ex2: Plus = Plus(Lit(12),Plus(Lit(87),Lit(6)))
-  // scala> runEval5(env)(ex2)(17)
+  // scala> runEval3(env)(ex2)(17)
   // res130: (Either[String,Value], Int) = (Right(IntVal(105)),22)
 
   // scala> val e1 = Plus(Lit(12), App(Abs("x", Var("x")), Plus(Lit(4), Lit(2))))
   // e1: Plus = Plus(Lit(12),App(Abs(x,Var(x)),Plus(Lit(4),Lit(2))))
-  // scala> runEval5(env)(e1)(0)
+  // scala> runEval3(env)(e1)(0)
   // res25: (Either[String,Value], Int) = (Right(IntVal(18)),8)
 
   // -- failure case --
   // scala> val e2 = Plus(Lit(12), App(Abs("x", Var("y")), Plus(Lit(4), Lit(2))))
   // e2: Plus = Plus(Lit(12),App(Abs(x,Var(y)),Plus(Lit(4),Lit(2))))
 
-  // scala> runEval5(env)(e2)(0)
+  // scala> runEval3(env)(e2)(0)
   // res27: (Either[String,Value], Int) = (Left(Unbound variable y),8)
 }
