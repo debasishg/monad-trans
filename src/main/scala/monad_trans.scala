@@ -248,7 +248,7 @@ object MT {
   // scala> res37.runT.value
   // res39: Either[String,Value] = Left(type error in Plus error in lookup)
 
-  type StateTIntIdentity[α] = ({type λ[α] = StateT[Int, Identity, α]})#λ[α]
+  type StateTIntIdentity[A] = StateT[Int, Identity, A]
   type Eval3[A] = EitherT[String, StateTIntIdentity, A]
 
   def runEval3: Env => Exp => Int => (Either[String, Value], Int) = { env => exp => seed => 
