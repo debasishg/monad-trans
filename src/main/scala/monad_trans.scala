@@ -63,7 +63,7 @@ object MT {
 
   import Values._
 
-  type Eval1[A] = Identity[A]
+  type Eval1[A] = Id[A]
 
   def eval1: Env => Exp => Eval1[Value] = {env => exp =>
     exp match {
@@ -95,7 +95,7 @@ object MT {
   // scala> res7.value
   // res8: Value = IntVal(18)
 
-  type Eval2[A] = EitherT[String, Identity, A]
+  type Eval2[A] = EitherT[Id, String, A]
 
   def eval2a: Env => Exp => Eval2[Value] = {env => exp =>
     exp match {
@@ -118,7 +118,7 @@ object MT {
           val1 match {
             case FunVal(e, n, exp) => eval2a(e + ((n, val2)))(exp)
           }
-        val Right(f) = r.runT.value
+        val Right(f) = r.run.copoint.toEither
         f
       }
     }
@@ -133,6 +133,7 @@ object MT {
   // scala> res31.runT.value
   // res33: Either[String,Value] = Right(IntVal(18))
 
+  import EitherT._
   def eval2b: Env => Exp => Eval2[Value] = {env => exp =>
     exp match {
       case Lit(i) => intval(i).point[Eval2]
@@ -144,10 +145,10 @@ object MT {
             j <- eval2b(env)(e2)
           } yield((i, j))
 
-        r.runT.value match {
-          case Right((IntVal(i_), IntVal(j_))) => rightT(IntVal(i_ + j_))
-          case Left(s) => leftT("type error in Plus" + "/" + s)
-          case _ => leftT("type error in Plus")
+        r.run.copoint.toEither match {
+          case Right((IntVal(i_), IntVal(j_))) => (IntVal(i_ + j_)).point[Eval2]
+          case Left(s) => eitherT[Id, String, Value](("type error in Plus" + "/" + s).left)
+          case _ => eitherT[Id, String, Value]("type error in Plus".left)
         }
       case Abs(n, e) => funval(env, n, e).point[Eval2]
       case App(e1, e2) => 
@@ -157,9 +158,9 @@ object MT {
             val2 <- eval2b(env)(e2)
           } yield((val1, val2))
 
-        r.runT.value match {
+        r.run.copoint.toEither match {
           case Right((FunVal(e, n, exp), v)) => eval2b(e + ((n, v)))(exp)
-          case _ => leftT("type error in App")
+          case _ => eitherT[Id, String, Value]("type error in App".left)
         }
     }
   }
@@ -198,8 +199,8 @@ object MT {
     exp match {
       case Lit(i) => intval(i).point[Eval2]
 
-      case Var(n) => (env get n).map(v => rightT[String, Identity, Value](v))
-                                .getOrElse(leftT[String, Identity, Value]("Unbound variable " + n))
+      case Var(n) => (env get n).map(_.point[Eval2])
+                                .getOrElse(eitherT[Id, String, Value](("Unbound variable " + n).left))
       case Plus(e1, e2) => 
         val r = 
           for {
@@ -207,10 +208,10 @@ object MT {
             j <- eval2(env)(e2)
           } yield((i, j))
 
-        r.runT.value match {
-          case Right((IntVal(i_), IntVal(j_))) => rightT(IntVal(i_ + j_))
-          case Left(s) => leftT("type error in Plus" + "/" + s)
-          case _ => leftT("type error in Plus")
+        r.run.copoint.toEither match {
+          case Right((IntVal(i_), IntVal(j_))) => (IntVal(i_ + j_)).point[Eval2]
+          case Left(s) => eitherT[Id, String, Value](("type error in Plus" + "/" + s).left)
+          case _ => eitherT[Id, String, Value]("type error in Plus".left)
         }
 
       case Abs(n, e) => funval(env, n, e).point[Eval2]
@@ -222,9 +223,9 @@ object MT {
             val2 <- eval2(env)(e2)
           } yield((val1, val2))
 
-        r.runT.value match {
+        r.run.copoint.toEither match {
           case Right((FunVal(e, n, exp), v)) => eval2(e + ((n, v)))(exp)
-          case _ => leftT("type error in App")
+          case _ => eitherT[Id, String, Value]("type error in App".left)
         }
     }
   }
@@ -248,26 +249,30 @@ object MT {
   // scala> res37.runT.value
   // res39: Either[String,Value] = Left(type error in Plus error in lookup)
 
-  type StateTIntIdentity[A] = StateT[Int, Identity, A]
-  type Eval3[A] = EitherT[String, StateTIntIdentity, A]
+  import StateT._
+  type StateTIntIdentity[+A] = StateT[Id, Int, A]
+  type Eval3[A] = EitherT[StateTIntIdentity, String, A]
 
-  def runEval3: Env => Exp => Int => (Either[String, Value], Int) = { env => exp => seed => 
-    eval3(env)(exp).runT.value.run(seed)
+  def runEval3: Env => Exp => Int => (Int, \/[String, Value]) = { env => exp => seed => 
+    eval3(env)(exp).run(seed)
   }
 
-  def stfn(e: Either[String, Value]) = (s: Int) => id[(Either[String, Value], Int)](e, s+1)
+  // def tick = MonadState[State, Int].modify((s: Int) => s + 1)
+  def tick = State.modify((s: Int) => s + 1)
 
-  def eitherNStateT(e: Either[String, Value]) =
-    eitherT[String, StateTIntIdentity, Value](stateT[Int, Identity, Either[String, Value]](stfn(e)))
+  def stfn(e: \/[String, Value]) = (s: Int) => (s+1, e)
+
+  def eitherNStateT(e: \/[String, Value]) =
+    eitherT[StateTIntIdentity, String, Value](StateT[Id, Int, \/[String, Value]](stfn(e)))
 
   def eval3: Env => Exp => Eval3[Value] = {env => exp => 
     exp match {
-      case Lit(i) => eitherNStateT(Right(IntVal(i)))
+      case Lit(i) => eitherNStateT(IntVal(i).right)
 
       case Plus(e1, e2) =>
         def appplus(v1: Value, v2: Value) = (v1, v2) match {
-          case ((IntVal(i1), IntVal(i2))) => eitherNStateT(Right(IntVal(i1 + i2))) 
-          case _ => eitherNStateT(Left("type error in Plus"))
+          case ((IntVal(i1), IntVal(i2))) => eitherNStateT((IntVal(i1 + i2)).right) 
+          case _ => eitherNStateT("type error in Plus".left)
         }
         for {
           i <- eval3(env)(e1)
@@ -276,16 +281,16 @@ object MT {
         } yield v
 
       case Var(n) => 
-        val v = (env get n).map(Right(_))
-                           .getOrElse(Left("Unbound variable " + n))
+        val v = (env get n).map(_.right)
+                           .getOrElse(("Unbound variable " + n).left)
         eitherNStateT(v)
 
-      case Abs(n, e) => eitherNStateT(Right(FunVal(env, n, e)))
+      case Abs(n, e) => eitherNStateT(FunVal(env, n, e).right)
 
       case App(e1, e2) => 
         def appfun(v1: Value, v2: Value) = v1 match {
           case FunVal(e, n, body) => eval3(e + ((n, v2)))(body)
-          case _ => eitherNStateT(Left("type error in App"))
+          case _ => eitherNStateT("type error in App".left)
         }
 
         val s =
@@ -295,8 +300,12 @@ object MT {
             v    <- appfun(val1, val2)
           } yield v
 
-        val ust = s.runT.value.usingT((x: Int) => x + 1)
-        eitherT[String, StateTIntIdentity, Value](ust)
+        val ust = for {
+          x <- s.run
+          _ <- State.modify((a: Int) => a + 1)
+        } yield x
+
+        eitherT[StateTIntIdentity, String, Value](ust)
     }
   }
 

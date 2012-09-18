@@ -8,18 +8,21 @@ package net.debasishg.monadt
  * To change this template use File | Settings | File Templates.
  */
 
-import org.scalatest.Spec
+import org.scalatest.FunSpec
 import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 
 @RunWith(classOf[JUnitRunner])
-class MonadTransSpec extends Spec with ShouldMatchers {
+class MonadTransSpec extends FunSpec with ShouldMatchers {
 
   import MT._
 
   final val env = collection.immutable.Map.empty[Name, Value]
   final val e1 = Plus(Lit(12), App(Abs("x", Var("x")), Plus(Lit(4), Lit(2))))
+
+  import scalaz.syntax.copointed._
+  import scalaz.syntax.id._
 
   describe("eval0") {
     it("should evaluate") {
@@ -29,55 +32,55 @@ class MonadTransSpec extends Spec with ShouldMatchers {
 
   describe("eval1") {
     it("should evaluate") {
-      eval1(env)(e1).value should equal(IntVal(18))
+      eval1(env)(e1).copoint should equal(IntVal(18))
     }
   }
 
   describe("eval2a") {
     it("should evaluate") {
-      eval2a(env)(e1).runT.value should equal(Right(IntVal(18)))
+      eval2a(env)(e1).run should equal(IntVal(18).right)
     }
   }
 
   describe("eval2b") {
     it("should evaluate") {
-      eval2b(env)(e1).runT.value should equal(Right(IntVal(18)))
+      eval2b(env)(e1).run should equal(IntVal(18).right)
     }
 
     it("should error on Plus #1") {
       val e1 = Plus(Lit(12), App(Lit(10), Lit(23)))   
-      eval2b(env)(e1).runT.value should equal(Left("type error in Plus/type error in App"))
+      eval2b(env)(e1).run should equal("type error in Plus/type error in App".left)
     }
 
     it("should error on Plus #2") {
       val e1 = Plus(Lit(1), Abs("x", Var("x")))
-      eval2b(env)(e1).runT.value should equal(Left("type error in Plus"))
+      eval2b(env)(e1).run should equal("type error in Plus".left)
     }
   }
 
   describe("eval2") {
     it("should evaluate") {
-      eval2(env)(e1).runT.value should equal(Right(IntVal(18)))
+      eval2(env)(e1).run should equal(IntVal(18).right)
     }
 
     it("should error on unbound variable") {
       val e1 = Plus(Lit(12), App(Abs("x", Var("y")), Plus(Lit(4), Lit(2))))
-      eval2(env)(e1).runT.value should equal(Left("type error in Plus/Unbound variable y"))
+      eval2(env)(e1).run should equal("type error in Plus/Unbound variable y".left)
     }
   }
 
   describe("eval3") {
     it("should evaluate") {
       val ex1 = Plus(Lit(12), Lit(98))
-      runEval3(env)(ex1)(76) should equal(Right(IntVal(110)), 79)
+      runEval3(env)(ex1)(76) should equal(79, IntVal(110).right)
       val ex2 = Plus(Lit(12), Plus(Lit(87), Lit(6)))
-      runEval3(env)(ex2)(17) should equal(Right(IntVal(105)), 22)
+      runEval3(env)(ex2)(17) should equal(22, IntVal(105).right)
       val ex3 = Plus(Lit(12), App(Abs("x", Var("x")), Plus(Lit(4), Lit(2))))
-      runEval3(env)(ex3)(0) should equal(Right(IntVal(18)), 8)
+      runEval3(env)(ex3)(0) should equal(8, IntVal(18).right)
     }
     it("should error on unbound variable") {
       val ex1 = Plus(Lit(12), App(Abs("x", Var("y")), Plus(Lit(4), Lit(2))))
-      runEval3(env)(ex1)(0) should equal(Left("Unbound variable y"), 7)
+      runEval3(env)(ex1)(0) should equal(7, "Unbound variable y".left)
     }
   }
 }
