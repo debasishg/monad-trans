@@ -1,7 +1,10 @@
 package net.debasishg.monadt
 
 import scalaz._
-import Scalaz._
+import scalaz.Scalaz._
+import scalaz.EitherT.eitherT
+import scalaz.EitherT.eitherTMonad
+import scalaz.StateT.stateMonad
 
 object MT {
   // variable names
